@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="本地解析、编辑和验证 Claude Code Compact Summary JSONL 记录"
+    />
+    <link rel="icon" href="data:," />
+    <title>JSONL Summary Lab</title>
+  </head>
+  <body>
+    <div id="app-shell">
+      <header class="app-header">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <i data-lucide="file-json-2"></i>
+          </div>
+          <div>
+            <h1>JSONL Summary Lab</h1>
+            <p>Claude Code Compact Summary Editor</p>
+          </div>
+        </div>
+        <div class="header-status" id="header-status" data-state="idle">
+          <i data-lucide="shield-check"></i>
+          <span>本地处理</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel source-panel" aria-labelledby="source-heading">
+          <div class="panel-header">
+            <div>
+              <span class="step-index">01</span>
+              <h2 id="source-heading">JSONL 记录</h2>
+            </div>
+            <div class="panel-actions">
+              <button
+                class="icon-button"
+                id="paste-button"
+                type="button"
+                title="从剪贴板粘贴"
+                aria-label="从剪贴板粘贴"
+              >
+                <i data-lucide="clipboard-paste"></i>
+              </button>
+              <button
+                class="icon-button"
+                id="file-button"
+                type="button"
+                title="打开 JSONL 文件"
+                aria-label="打开 JSONL 文件"
+              >
+                <i data-lucide="folder-open"></i>
+              </button>
+              <input id="file-input" type="file" accept=".jsonl,.json,.txt" hidden />
+              <button
+                class="icon-button"
+                id="sample-button"
+                type="button"
+                title="载入示例"
+                aria-label="载入示例"
+              >
+                <i data-lucide="flask-conical"></i>
+              </button>
+              <button
+                class="icon-button"
+                id="reset-button"
+                type="button"
+                title="清空"
+                aria-label="清空"
+              >
+                <i data-lucide="rotate-ccw"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="file-scan" id="file-scan" hidden>
+            <div class="scan-row">
+              <span id="scan-label">正在扫描</span>
+              <span id="scan-count">0</span>
+            </div>
+            <progress id="scan-progress" max="100" value="0"></progress>
+            <label for="summary-select">Compact Summary</label>
+            <select id="summary-select"></select>
+          </div>
+
+          <textarea
+            id="raw-input"
+            class="code-input raw-input"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="JSONL 单行记录"
+            placeholder='{"parentUuid":"...","type":"user","message":{"role":"user","content":"..."},"isCompactSummary":true}'
+          ></textarea>
+
+          <div class="panel-footer">
+            <span class="counter" id="raw-counter">0 B</span>
+            <button class="button primary" id="parse-button" type="button">
+              <i data-lucide="scan-search"></i>
+              <span>解析记录</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel editor-panel" aria-labelledby="editor-heading">
+          <div class="panel-header">
+            <div>
+              <span class="step-index">02</span>
+              <h2 id="editor-heading">Content 编辑</h2>
+            </div>
+            <label class="toggle-control" title="将结构警告提升为错误">
+              <input id="strict-toggle" type="checkbox" />
+              <span class="toggle-track" aria-hidden="true"></span>
+              <span>严格模式</span>
+            </label>
+          </div>
+
+          <div class="record-meta" id="record-meta" aria-live="polite">
+            <span><strong>UUID</strong><code>未解析</code></span>
+            <span><strong>Role</strong><code>—</code></span>
+            <span><strong>Lines</strong><code>0</code></span>
+          </div>
+
+          <textarea
+            id="content-editor"
+            class="code-input content-editor"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="Compact Summary Content"
+            disabled
+          ></textarea>
+
+          <div class="panel-footer editor-footer">
+            <span class="counter" id="content-counter">0 字符 · 0 行</span>
+            <span class="change-counter" id="change-counter">Δ 0</span>
+          </div>
+        </section>
+
+        <aside class="panel validation-panel" aria-labelledby="validation-heading">
+          <div class="panel-header">
+            <div>
+              <span class="step-index">03</span>
+              <h2 id="validation-heading">验证</h2>
+            </div>
+            <span class="validation-total" id="validation-total">未运行</span>
+          </div>
+
+          <div class="gate-strip" id="gate-strip">
+            <button type="button" data-gate="content" class="gate active">
+              <span>Content</span><strong>—</strong>
+            </button>
+            <button type="button" data-gate="record" class="gate">
+              <span>Record</span><strong>—</strong>
+            </button>
+            <button type="button" data-gate="jsonl" class="gate">
+              <span>JSONL</span><strong>—</strong>
+            </button>
+          </div>
+
+          <div class="diagnostic-list" id="diagnostic-list" aria-live="polite">
+            <div class="empty-state">
+              <i data-lucide="shield-ellipsis"></i>
+              <span>等待解析</span>
+            </div>
+          </div>
+
+          <div class="audit-grid" id="audit-grid">
+            <span><small>物理行</small><strong>—</strong></span>
+            <span><small>字段变化</small><strong>—</strong></span>
+            <span><small>输出大小</small><strong>—</strong></span>
+            <span><small>指纹</small><strong>—</strong></span>
+          </div>
+
+          <div class="validation-actions">
+            <button class="button primary full-width" id="generate-button" type="button" disabled>
+              <i data-lucide="braces"></i>
+              <span>生成单行 JSONL</span>
+            </button>
+          </div>
+        </aside>
+
+        <section class="panel preview-panel" aria-labelledby="preview-heading">
+          <div class="panel-header compact-header">
+            <div>
+              <span class="step-index">04</span>
+              <h2 id="preview-heading">Transcript 预览</h2>
+            </div>
+            <label class="width-control" for="width-slider">
+              <span>列宽</span>
+              <input id="width-slider" type="range" min="60" max="160" step="10" value="100" />
+              <output id="width-value">100</output>
+            </label>
+          </div>
+
+          <div class="terminal-frame">
+            <div class="terminal-toolbar" aria-hidden="true">
+              <span></span><span></span><span></span>
+              <strong>transcript</strong>
+            </div>
+            <div class="terminal-content" id="terminal-content" style="--terminal-columns: 100">
+              <div class="terminal-title">
+                <span class="terminal-dot">●</span>
+                <strong>Compact summary</strong>
+              </div>
+              <div class="terminal-response">
+                <span class="terminal-gutter" aria-hidden="true">⎿</span>
+                <pre id="preview-content">等待 Content</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel output-panel" aria-labelledby="output-heading">
+          <div class="panel-header compact-header">
+            <div>
+              <span class="step-index">05</span>
+              <h2 id="output-heading">单行输出</h2>
+            </div>
+            <div class="panel-actions">
+              <button
+                class="icon-button"
+                id="copy-button"
+                type="button"
+                title="复制单行 JSONL"
+                aria-label="复制单行 JSONL"
+                disabled
+              >
+                <i data-lucide="copy"></i>
+              </button>
+              <button
+                class="icon-button"
+                id="download-button"
+                type="button"
+                title="下载 JSONL 记录"
+                aria-label="下载 JSONL 记录"
+                disabled
+              >
+                <i data-lucide="download"></i>
+              </button>
+            </div>
+          </div>
+          <textarea
+            id="output-line"
+            class="code-input output-line"
+            aria-label="生成的单行 JSONL"
+            readonly
+            placeholder="通过三层验证后生成"
+          ></textarea>
+          <div class="panel-footer">
+            <span class="counter" id="output-counter">0 B · 0 物理行</span>
+            <span class="output-state" id="output-state">尚未生成</span>
+          </div>
+        </section>
+      </main>
+
+      <div class="toast-region" id="toast-region" aria-live="polite"></div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

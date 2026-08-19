@@ -11,6 +11,21 @@ This file is the operating contract for AI coding agents and human contributors 
 - For cleanup/refactor/deslop work, write the cleanup plan first, lock existing behavior with regression tests when it is not already protected, then make one smell-focused pass at a time.
 - Do not commit generated artifacts: `artifacts/quality-runs/`, `artifacts/coverage/`, `.omx/`, `node_modules/`, `desktop/node_modules/`, `adapters/node_modules/`, `desktop/src-tauri/target/`, or local build outputs.
 
+## Upstream Repository Workflow
+- This repository is a downstream variant. Its writable repository is `git@github.com:we1005/claude-code-haha-lala.git` and its canonical upstream is `https://github.com/NanmiCoder/cc-haha.git`.
+- Use `origin` for the downstream repository and `upstream` for the canonical source. Git remote configuration is local and does not propagate with clones, so restore a missing upstream remote before comparing versions:
+
+```bash
+git remote get-url upstream >/dev/null 2>&1 || \
+  git remote add upstream https://github.com/NanmiCoder/cc-haha.git
+git fetch upstream --tags
+```
+
+- Inspect upstream changes with `git log --oneline --decorate main..upstream/main` and `git show <commit>` before integrating them.
+- Prefer narrowly scoped `git cherry-pick <commit>` operations on a dedicated branch such as `sync/upstream-<feature>`. Do not merge or rebase `upstream/main` wholesale unless the user explicitly requests it after reviewing the divergence.
+- Preserve downstream-specific model routing, provider/runtime behavior, OAuth handling, prompts, persistence formats, and compatibility patches. Resolve conflicts by understanding both implementations; never discard downstream behavior merely to match upstream.
+- Record the upstream commit IDs brought into downstream in the commit body or PR description so later agents can distinguish integrated changes from still-pending upstream work.
+
 ## Engineering Behavior Guardrails
 These rules are adapted from Karpathy-style coding-agent guidelines. They bias toward caution and simplicity, but do not override the autonomy rule for clear, reversible work.
 
